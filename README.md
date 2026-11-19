@@ -22,7 +22,7 @@ sudo apt install ffmpeg
 ```
 
 ```bash
-git clone https://github.com/<you>/youtube-listen-mcp
+git clone https://github.com/zoukkis/youtube-listen-mcp
 cd youtube-listen-mcp
 uv sync --extra whisper     # drop --extra whisper if you only want captions
 ```
@@ -58,7 +58,7 @@ claude mcp add youtube-listen -- uv --directory /path/to/youtube-listen-mcp run 
 Or run it straight from GitHub without cloning:
 
 ```json
-"args": ["--from", "youtube-listen-mcp[whisper] @ git+https://github.com/<you>/youtube-listen-mcp", "youtube-listen-mcp"]
+"args": ["--from", "youtube-listen-mcp[whisper] @ git+https://github.com/zoukkis/youtube-listen-mcp", "youtube-listen-mcp"]
 ```
 
 with `"command": "uvx"`.
