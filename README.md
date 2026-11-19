@@ -33,13 +33,30 @@ Test it with the MCP inspector:
 npx @modelcontextprotocol/inspector uv run youtube-listen-mcp
 ```
 
+### GPU (NVIDIA)
+
+On Linux, `--extra whisper` also installs NVIDIA's CUDA 12 cuBLAS and cuDNN 9 libraries from PyPI (about 1 GB), and the server loads them automatically. You don't need a system-wide CUDA toolkit, `sudo` or `LD_LIBRARY_PATH`. You only need an NVIDIA driver that supports CUDA 12 or later; `nvidia-smi` shows the version in its top right corner.
+
+To force the GPU and use half precision, set:
+
+```bash
+WHISPER_DEVICE=cuda WHISPER_COMPUTE_TYPE=float16
+```
+
+- **No NVIDIA GPU, or on macOS:** use `WHISPER_DEVICE=cpu WHISPER_COMPUTE_TYPE=int8`. The `small` model is fine on CPU for short clips.
+- **Windows:** the bundled libraries are Linux only. Install CUDA 12 cuBLAS and cuDNN 9 yourself and put them on `PATH`, or use CPU.
+- **`Library libcublas.so.12 is not found`:** the extra isn't installed. Run `uv sync --extra whisper`.
+- **`open() got an unexpected keyword argument 'metadata_errors'`:** PyAV 19 or later is installed. The extra pins `av<19`, so running `uv sync --extra whisper` again fixes it.
+
 ## Use with Claude
 
 **Claude Code**
 
 ```bash
-claude mcp add youtube-listen -- uv --directory /path/to/youtube-listen-mcp run youtube-listen-mcp
+claude mcp add -s user youtube-listen -- uv --directory /path/to/youtube-listen-mcp run youtube-listen-mcp
 ```
+
+`-s user` makes it available in every project. Add `-e WHISPER_DEVICE=cuda -e WHISPER_COMPUTE_TYPE=float16` before `--` to use the GPU.
 
 **Claude Desktop** (`claude_desktop_config.json`)
 
