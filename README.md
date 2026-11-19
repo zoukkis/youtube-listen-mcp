@@ -10,12 +10,13 @@ An [MCP](https://modelcontextprotocol.io) server that lets AI assistants like Cl
 | `list_transcripts(url)` | Caption languages available |
 | `get_transcript(url, start?, end?, languages?)` | YouTube captions with timestamps. Fast, no GPU |
 | `transcribe(url, start?, end?, model?, language?)` | Downloads audio (only the slice you ask for) and runs Whisper locally |
+| `screenshots(url, times, max_height?)` | Frames at the given timestamps (up to 10), returned as images the model can see. Only those frames are fetched, not the whole video. Up to 720p by default |
 
 Times can be given as `90`, `1:30`, `01:02:03` or `1h2m3s`.
 
 ## Install
 
-Requirements: Python 3.10+, [uv](https://docs.astral.sh/uv/), and `ffmpeg` for `transcribe`:
+Requirements: Python 3.10+, [uv](https://docs.astral.sh/uv/), and `ffmpeg` for `transcribe` and `screenshots`:
 
 ```bash
 sudo apt install ffmpeg
@@ -82,6 +83,8 @@ with `"command": "uvx"`.
 
 Then ask: *"What does the speaker say between 12:00 and 15:30 in https://youtu.be/…?"*
 
+Or combine speech and visuals: *"In https://youtu.be/…, transcribe 19:12–21:22 and look at the screen at 17:11 and 19:21. What's being shown and explained?"*
+
 ## Configuration
 
 | Env var | Default | Notes |
@@ -92,7 +95,7 @@ Then ask: *"What does the speaker say between 12:00 and 15:30 in https://youtu.b
 
 ## Notes
 
-- This gives the model text, not sound, so it gets the speech but not tone, music or other sounds.
+- This gives the model text, not sound, so it gets the speech but not tone, music or other sounds. `screenshots` adds still frames, not motion.
 - YouTube sometimes rate-limits or blocks caption requests, especially from cloud IPs. If that happens, `transcribe` is the fallback.
 - Respect YouTube's Terms of Service and creators' rights when downloading audio.
 

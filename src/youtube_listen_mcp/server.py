@@ -5,18 +5,22 @@ Tools:
   - list_transcripts: which caption languages a video has
   - get_transcript:   YouTube captions, optionally limited to a time range
   - transcribe:       download audio (or one slice of it) and run Whisper locally
+  - screenshots:      grab video frames at given timestamps, returned as images
 """
 
 from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Image, MCPServer
+
+MAX_SCREENSHOTS = 10
 
 mcp = MCPServer("youtube-listen")
 
@@ -249,6 +253,66 @@ def transcribe(
 
     text = _lines(segs, None, None)
     return f"Whisper {model_name} ({info.language})\n{text}" if text else "No speech detected."
+
+
+@mcp.tool()
+def screenshots(url: str, times: list[str], max_height: int = 720):
+    """Grab still frames from a YouTube video at the given timestamps.
+
+    Use this to see what is on screen (slides, code, diagrams, people) at
+    specific moments. Combine with `get_transcript` or `transcribe` for the
+    surrounding speech. Only the frames are fetched, not the whole video.
+
+    Args:
+        url: YouTube URL or video ID.
+        times: Timestamps to capture, e.g. ["17:11", "19:21"]. Max 10.
+        max_height: Maximum frame height in pixels (default 720).
+    """
+    import yt_dlp
+
+    if not times:
+        raise ValueError("Give at least one timestamp.")
+    if len(times) > MAX_SCREENSHOTS:
+        raise ValueError(f"At most {MAX_SCREENSHOTS} screenshots per call.")
+    points = [(t, parse_time(t)) for t in times]
+
+    h = int(max_height)
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        # A single video-only stream so there is one URL ffmpeg can seek in.
+        "format": f"bestvideo[height<={h}][ext=mp4]/bestvideo[height<={h}]"
+                  f"/best[height<={h}]/best",
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    stream = info.get("url")
+    if not stream:
+        raise RuntimeError("Could not get a video stream URL for this video.")
+    headers = "".join(f"{k}: {v}\r\n" for k, v in (info.get("http_headers") or {}).items())
+    duration = info.get("duration")
+
+    out: list = [f"Screenshots from: {info.get('title')}"]
+    for label, sec in points:
+        if duration and sec >= duration:
+            out.append(f"[{label}] skipped: past the end of the video ({fmt(duration)})")
+            continue
+        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+        if headers:
+            cmd += ["-headers", headers]
+        cmd += ["-ss", str(sec), "-i", stream, "-frames:v", "1",
+                "-vf", f"scale=-2:'min({h},ih)'", "-q:v", "3",
+                "-f", "image2", "-c:v", "mjpeg", "pipe:1"]
+        proc = subprocess.run(cmd, capture_output=True, timeout=120)
+        if proc.returncode != 0 or not proc.stdout:
+            err = proc.stderr.decode(errors="replace").strip()[-300:]
+            out.append(f"[{label}] failed: {err or 'no frame returned'}")
+            continue
+        out.append(f"[{fmt(sec)}]")
+        out.append(Image(data=proc.stdout, format="jpeg"))
+    return out
 
 
 def main() -> None:
