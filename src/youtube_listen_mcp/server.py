@@ -81,6 +81,41 @@ def _lines(segments, start: Optional[float], end: Optional[float]) -> str:
     return "\n".join(out)
 
 
+_cuda_preloaded = False
+
+
+def _preload_cuda_libs() -> None:
+    """Load cuBLAS/cuDNN from the nvidia-* pip wheels, if installed.
+
+    CTranslate2 dlopen()s libcublas.so.12 and libcudnn*.so.9 by name, which
+    fails when CUDA isn't installed system-wide. Loading them first with
+    RTLD_GLOBAL makes them visible without needing LD_LIBRARY_PATH.
+    """
+    global _cuda_preloaded
+    if _cuda_preloaded or not sys.platform.startswith("linux"):
+        return
+    _cuda_preloaded = True
+    import ctypes
+    import importlib.util
+
+    for pkg in ("nvidia.cublas", "nvidia.cudnn"):
+        try:
+            spec = importlib.util.find_spec(pkg)
+        except ModuleNotFoundError:
+            continue
+        if not spec or not spec.submodule_search_locations:
+            continue
+        for loc in spec.submodule_search_locations:
+            # cublasLt before cublas; libcudnn.so.9 last so its parts are loaded
+            for lib in sorted((Path(loc) / "lib").glob("lib*.so*"),
+                              key=lambda p: (p.name.startswith("libcublas."),
+                                             p.name == "libcudnn.so.9")):
+                try:
+                    ctypes.CDLL(str(lib), mode=ctypes.RTLD_GLOBAL)
+                except OSError:
+                    pass
+
+
 # --------------------------------------------------------------------------- #
 # Tools
 # --------------------------------------------------------------------------- #
@@ -175,6 +210,7 @@ def transcribe(
                Defaults to $WHISPER_MODEL or "small".
         language: Optional language code, e.g. "en", "fi". Auto-detect if empty.
     """
+    _preload_cuda_libs()
     import yt_dlp
     from yt_dlp.utils import download_range_func
     from faster_whisper import WhisperModel

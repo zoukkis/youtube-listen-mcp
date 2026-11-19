@@ -12,7 +12,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-whisper = ["faster-whisper>=1.0"]
+# av 19 removed the open(metadata_errors=) argument that faster-whisper uses
+# nvidia-* wheels supply the CUDA 12 cuBLAS/cuDNN 9 libraries CTranslate2 needs on GPU
+whisper = [
+    "faster-whisper>=1.0",
+    "av<19",
+    "nvidia-cublas-cu12; sys_platform == 'linux'",
+    "nvidia-cudnn-cu12>=9,<10; sys_platform == 'linux'",
+]
 
 [project.scripts]
 youtube-listen-mcp = "youtube_listen_mcp.server:main"
